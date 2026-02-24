@@ -1,0 +1,67 @@
+name: Deploy EC2 com Página Web
+run-name: ${{ github.actor }} iniciou o deploy da EC2
+
+on:
+  push:
+    branches: [ "main", "develop" ]
+
+jobs:
+    # 1. Validação do código (Mantido)
+  codevalidate:
+    name: "Verifica o código Terraform"
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+      - run: terraform init -backend=false
+      - run: terraform validate
+
+    # 2. Verificação de Segurança
+  security_scan:
+    name: "Análise de Segurança (tfsec)"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        
+      - name: Rodar tfsec
+        uses: aquasecurity/tfsec-action@v1.0.0
+        with:
+          soft_fail: true
+          
+    # 3. Provisionamento do ambiente
+  infraestrutura:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+
+      - name: Configurar AWS via OIDC
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_DEFAULT_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+
+      - name: Criar arquivo de backend
+        run: echo "${{ secrets.BACKEND_CONFIG }}" > backend-config.tfvars
+
+      - name: Terraform Init
+        run: terraform init -backend-config="backend-config.tfvars"
+
+      - name: Selecionar Workspace
+        run: |
+          # Se a branch for main, usa o workspace 'prod'. Se não, usa 'stag'.
+          WORKSPACE=${{ github.ref == 'refs/heads/main' && 'prod' || 'stag' }}
+          
+          # Tenta selecionar o workspace. Se não existir, ele cria.
+          terraform workspace select $WORKSPACE || terraform workspace new $WORKSPACE
+
+      - name: Terraform Plan
+        run: terraform plan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main' # Só aplica se for na main
+        run: terraform apply -auto-approve
