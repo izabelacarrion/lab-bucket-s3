@@ -2,8 +2,6 @@ name: Remove Bucket S3
 run-name: ${{ github.actor }} iniciou o deploy 
 
 on:
-  push:
-    branches: 
     - workflow_dispatch
 
 permissions:
