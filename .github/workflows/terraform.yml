@@ -1,9 +1,13 @@
-name: Deploy EC2 com Página Web
-run-name: ${{ github.actor }} iniciou o deploy da EC2
+name: Deploy de Bucket S3
+run-name: ${{ github.actor }} iniciou o deploy 
 
 on:
   push:
     branches: [ "main", "develop" ]
+
+permissions:
+  id-token: write # permite que a action solicite o token OIDC
+  contents: read  # permite que a action baixe o seu código
 
 jobs:
     # 1. Validação do código (Mantido)
